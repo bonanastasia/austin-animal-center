@@ -1,0 +1,181 @@
+---
+title: "Austin Animal Center Data"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    df_print: paged
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_dir = "docs") })
+---
+
+## About the project
+
+This project analyzes animal intake data from Austin Animal Center since 2016. The data was imported from [Austin's Open Data Portal](https://data.austintexas.gov/), and cleaned separately by me.
+
+## Setup
+
+Import the following libraries to help analyze our data: `tidyverse`, `lubridate`, `scales`, `plotly`, and `clipr`
+
+```{r setup, setup, echo=T, results='hide', message=F, warning=F}
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(plotly)
+library(clipr)
+```
+
+## Import data
+
+Import the Austin Animal Center intakes dataset we cleaned in `01-import`
+
+```{r import}
+intakes <- read_rds("data-processed/01-intakes.rds")
+
+# peek at the data
+intakes %>% glimpse
+```
+
+## Intakes by year
+
+Answer the following question: 
+
+- Are animal intakes increasing or decreasing each year since 2016? Plot a column chart of intakes by year. Don’t include 2021 since it is not a full year.
+
+### Summarise data
+
+```{r summarise_intakes_by_yr}
+intakes_yr_data <- intakes %>% 
+  filter(
+    yr < "2021"
+  ) %>% 
+  count(yr, name= "count_animals")
+
+intakes_yr_data 
+```
+### Plot data
+
+```{r plot_intakes_by_yr}
+ggplot(intakes_yr_data, aes(x = yr, y = count_animals)) + 
+  geom_col(aes(fill = yr)) +
+  geom_text(aes(label = comma(count_animals)), vjust = 2, color = "white") +
+  labs(
+    title = "Intakes By Year",
+    subtitle = "Total animals taken in by Austin Animal Center per year since 2016",
+    caption="Source: austintexas.gov",
+    x = "Year",
+    y = "Total animals"
+  ) +
+  scale_y_continuous(labels = comma)
+```
+
+## Intakes by month
+
+Answer the following question:
+
+- Are there seasonal monthly trends in overall animal intakes? 
+
+### Summarise the data
+
+Use `count` to find monthly intakes by year
+
+```{r summarise_intakes_by_month}
+intakes_yrmo <- intakes %>% 
+  count(yr_mo, name = "count_animals")
+
+intakes_yrmo
+```
+
+### Plot intakes by yr/mo
+
+Look at the overall trends of intakes broken down by month to understand where we should dig in more.
+
+```{r plot_intakes_by_month, fig.width = 10}
+ggplot(intakes_yrmo, aes(x = yr_mo, y = count_animals)) +
+  geom_line(group = 1) +# tell ggplot to only plot the single line
+  theme(axis.text.x = element_text(angle = 90)) # flips the axis name
+```
+
+## Intakes by month, split by year
+
+Use month and year columns to show trends in intakes by year
+
+### Summarise the data
+
+Use `count` to intakes by month and year intakes by year
+
+```{r count_mo_yr}
+mo_yr_data <- intakes %>% 
+  count(mo, yr, name = "count_animals") # count animal intakes by month, year
+
+mo_yr_data
+```
+
+### Plot
+
+```{r plot_mo_yr_data}
+ggplot(mo_yr_data, aes(x = mo, y = count_animals)) + # set x and y axis
+  geom_line(aes(group = yr, color = as.character(yr))) + # split lines and set colors
+  labs(
+    title = "Intake Trends By Month",
+    subtitle = "Amount of animals taken in monthly by year",
+    x = "Month",
+    y = "Animal Count",
+    color = "Year", # fix the title for the legend
+    caption = "Source: austintexas.gov"
+  )
+```
+
+## Types by month
+
+Answer the following question (using only full-year data)
+
+- Do certain types of animals drive seasonal trends? 
+
+### Recode data
+
+Create an "other" group for animals other than cats and dogs, filter data for complete years
+
+```{r recode_types}
+intake_types <- intakes %>% 
+  filter(yr < 2021) %>% 
+  mutate(
+    animal_type = recode(
+      animal_type, # column
+      "Bird" = "Other", # Values to rename
+      "Livestock" = "Other"
+      )
+  )
+
+intake_types %>% 
+  count(animal_type)
+```
+
+### Summarise data
+
+Use `count` to find amount of animals taken in by month
+
+```{r types_by_month}
+type_mo_count <- intake_types %>% 
+  count(mo, animal_type, name = "count_animals") # count animal types per month
+
+# peek at the data
+type_mo_count
+```
+
+### Plot animal types by month
+
+```{r plot_type_per_mo}
+ggplot(type_mo_count, aes(x = mo, y = count_animals)) +
+geom_line(aes(group = animal_type, color = animal_type)) + # split by animal type
+  labs(
+    title = "Monthly Trends In Animal Types",
+    subtitle = "Types of animals taken in by type each month since 2016",
+    x = "Month",
+    y = "Animal Count",
+    color = "Type", # fix the title for the legend
+    caption = "Source: austintexas.gov"
+  )
+```
+
